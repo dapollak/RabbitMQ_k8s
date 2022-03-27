@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: rabbitmq
+spec:
+  selector:
+    matchLabels:
+      app: rabbitmq # has to match .spec.template.metadata.labels
+  serviceName: "rabbitmq"
+  replicas: 1 # by default is 1
+  template:
+    metadata:
+      labels:
+        app: rabbitmq # has to match .spec.selector.matchLabels
+    spec:
+      terminationGracePeriodSeconds: 10
+      containers:
+        - name: rabbitmq
+          image: rabbitmq:latest
+          volumeMounts:
+          - name: rabbit-conf
+            mountPath: /etc/rabbitmq
+          - name: rabbitmq-data
+            mountPath: /var/lib/rabbitmq
+      initContainers:
+        - name: copy-conf
+          image: busybox:latest
+          command: ["sh", "-c", "cp /tmp/etc/rabbitmq/* /tmp/shared-conf"]
+          volumeMounts:
+          - name: rabbit-conf
+            mountPath: /tmp/shared-conf
+          - name: rabbitmq-conf
+            mountPath: /tmp/etc/rabbitmq
+      volumes:
+        - name: rabbitmq-conf
+          configMap:
+            name: rabbitmq-conf
+            items:
+              - key: conf
+                path: rabbitmq.conf
+              - key: enabled-plugins
+                path: enabled_plugins
+        - name: rabbit-conf
+          emptyDir: {}
+        - name: rabbitmq-data
+          persistentVolumeClaim:
+            claimName: rabbitmq-data
